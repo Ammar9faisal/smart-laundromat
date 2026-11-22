@@ -1,63 +1,74 @@
 # Smart Laundromat Service Platform
 
-EECS 4413 – Fall 2026
+**EECS 4413 — Fall 2026**
 
-A web application for browsing laundromat machines, making reservations, processing simulated payments, and managing machine availability.
+A full-stack web application for managing laundromat machines, customer reservations, simulated payments, and administrative operations.
+
+This project is being developed as a university group project.
 
 ## Tech Stack
 
-- **Frontend:** Next.js, React, TypeScript, Tailwind CSS
-- **Backend:** Python, FastAPI
-- **Database:** Supabase (PostgreSQL)
-- **Authentication:** Supabase Auth
+| Component | Technology |
+|---|---|
+| Frontend | Next.js (App Router), React, TypeScript |
+| Styling | Tailwind CSS |
+| Backend | Python 3.12, FastAPI |
+| Database | Supabase PostgreSQL |
+| Authentication | Supabase Auth |
+| Database Client | Supabase Python SDK |
+| API Documentation | FastAPI Swagger/OpenAPI |
+| Version Control | Git and GitHub |
 
 ## Prerequisites
 
-Install the following before getting started:
+Before starting, install:
 
-- Node.js (LTS version)
-- Python 3.12
 - Git
+- Node.js (LTS version) and npm
+- Python 3.12
+- VS Code (recommended)
 
-## 1. Clone the Repository
+You will also need access to our shared Supabase development project configuration.
 
-```bash
-git clone <repository-url>
-cd smart-laundromat
-```
+## Getting Started
 
-Replace `<repository-url>` with our GitHub repository URL.
-
-## 2. Frontend Setup
-
-Navigate to the frontend directory:
+### 1. Clone the Repository
 
 ```bash
-cd frontend
-npm install
+git clone <REPOSITORY_URL>
+cd <REPOSITORY_FOLDER>
 ```
 
-Create a `.env.local` file inside `frontend/`:
+Replace the placeholders with the actual GitHub repository URL and folder name.
+
+### 2. Configure Environment Variables
+
+Create `frontend/.env.local`:
 
 ```env
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
-NEXT_PUBLIC_SUPABASE_URL=<supabase-project-url>
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<supabase-publishable-key>
 ```
 
-Get the Supabase project URL and publishable key from the shared project configuration.
+Create `backend/.env`:
 
-Start the frontend:
-
-```bash
-npm run dev
+```env
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_KEY=YOUR_PUBLISHABLE_KEY
 ```
 
-Frontend: http://localhost:3000
+The Supabase project URL and publishable key will be shared with team members.
 
-## 3. Backend Setup
+**Important:**
+- Use the publishable key (`sb_publishable_...`), not the secret key.
+- Do not commit `.env` or `.env.local` files.
+- Do not use Supabase service-role or secret keys in frontend code.
+- We use one shared Supabase development project, so teammates do not need to create separate databases.
 
-Open a second terminal and navigate to the backend directory:
+### 3. Set Up the Backend
+
+Open a terminal from the repository root:
 
 ```bash
 cd backend
@@ -65,35 +76,24 @@ cd backend
 
 Create a Python virtual environment:
 
-```bash
-python3.12 -m venv .venv
-```
-
-Activate the environment.
-
 **macOS/Linux:**
 
 ```bash
+python3.12 -m venv .venv
 source .venv/bin/activate
 ```
 
 **Windows PowerShell:**
 
 ```powershell
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-Install dependencies:
+Install backend dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
-```
-
-Create a `.env` file inside `backend/`:
-
-```env
-SUPABASE_URL=<supabase-project-url>
-SUPABASE_KEY=<supabase-publishable-key>
 ```
 
 Start FastAPI:
@@ -102,90 +102,193 @@ Start FastAPI:
 fastapi dev app/main.py
 ```
 
-Backend: http://127.0.0.1:8000
+The backend should be available at:
 
-API documentation: http://127.0.0.1:8000/docs
+- API: http://127.0.0.1:8000
+- API Documentation: http://127.0.0.1:8000/docs
+- Health Check: http://127.0.0.1:8000/health
 
-## 4. Supabase Setup
+Keep this terminal running.
 
-The team uses one shared Supabase development project.
+### 4. Set Up the Frontend
 
-1. Obtain the project URL and publishable key from the team.
-2. Add these values to the frontend and backend environment files.
-3. The database tables and sample data are managed through the shared Supabase project.
-
-**Do not commit `.env` or `.env.local` files to GitHub. Never expose Supabase secret or service-role keys in frontend code.**
-
-## 5. Running the Application
-
-Both servers must be running simultaneously.
-
-**Terminal 1 — Frontend**
+Open a **second terminal** from the repository root:
 
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
-**Terminal 2 — Backend**
+Open http://localhost:3000 in your browser.
+
+Both the frontend and backend must be running for the full application to work.
+
+## Current Features
+
+The following features have been implemented and tested during initial development:
+
+| Feature | Status |
+|---|---|
+| Next.js frontend and homepage | Working |
+| FastAPI backend | Working |
+| Supabase database connection | Working |
+| Customer signup | Working |
+| Email/password login | Working |
+| Logout | Working |
+| Customer profiles | Working |
+| Customer/admin role authorization | Working |
+| Authenticated dashboard | Working |
+| Machine listing REST API | Working |
+| Machine browsing frontend | Not yet confirmed complete |
+| Reservation system | Not implemented |
+| Simulated payments | Not implemented |
+| Notifications | Not implemented |
+| Admin management dashboard | Not implemented |
+| AI availability search | Not implemented |
+
+This table reflects the initial implementation. Update it as features are merged.
+
+## Application Pages
+
+| URL | Description |
+|---|---|
+| `/` | Homepage |
+| `/signup` | Customer registration |
+| `/login` | User login |
+| `/dashboard` | Authenticated user dashboard |
+
+Machine browsing UI is planned at `/machines`.
+
+## Backend API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Backend health check |
+| GET | `/api/machines/` | Retrieve active machines |
+| GET | `/api/auth/me` | Retrieve authenticated user's profile |
+| GET | `/api/auth/admin-test` | Test admin-only authorization |
+
+Protected endpoints require a valid Supabase access token in the `Authorization: Bearer <token>` header.
+
+Additional endpoints will be introduced as development continues.
+
+## Database
+
+We use a shared Supabase PostgreSQL database.
+
+### Existing Tables
+
+**`machines`**
+
+Stores machine information including type, capacity, price, status, and whether the machine is active.
+
+**`profiles`**
+
+Stores application user profiles linked to Supabase Auth users. Each user has a `customer` or `admin` role.
+
+A database trigger automatically creates a customer profile when a new user registers.
+
+### Database Changes
+
+Coordinate schema changes with the team before modifying shared tables.
+
+New tables, constraints, functions, and policies should be saved as SQL migration files in `supabase/migrations/` so the schema can be reproduced.
+
+Do not delete shared tables or development data without discussing it with the team.
+
+## Development Workflow
+
+1. Pull the latest code from `main`.
+2. Create a new branch for your feature.
+3. Implement and test your changes locally.
+4. Commit your changes.
+5. Push your branch.
+6. Open a pull request for review.
+
+Example:
 
 ```bash
-cd backend
-source .venv/bin/activate
-fastapi dev app/main.py
+git checkout main
+git pull origin main
+git checkout -b feature/machine-browsing
 ```
 
-On Windows, use the PowerShell activation command from Section 3.
-
-Open http://localhost:3000 to access the application.
-
-To verify the backend, visit:
-
-- http://127.0.0.1:8000/health
-- http://127.0.0.1:8000/docs
-- http://127.0.0.1:8000/api/machines/
-
-## 6. Git Workflow
-
-Create a separate branch for your assigned feature:
-
-```bash
-git checkout -b feature/your-feature-name
-```
-
-After making changes:
+After implementing your feature:
 
 ```bash
 git add .
-git commit -m "Describe your changes"
-git push -u origin feature/your-feature-name
+git commit -m "feat: implement machine browsing"
+git push -u origin feature/machine-browsing
 ```
 
-Create a pull request on GitHub for another team member to review before merging into `main`.
+Create a pull request instead of directly pushing changes to `main`.
 
-Before starting new work, pull the latest changes from `main`.
+Coordinate changes to shared files, especially backend configuration, database migrations, and common frontend components.
 
-## 7. Current Development Status
+## Working With AI Coding Agents
 
-The project is in its initial development stage.
+AI coding agents may be used to assist development.
 
-The initial setup includes:
+Before asking an agent to implement a feature:
 
-- Next.js frontend
-- FastAPI backend
-- Supabase connection configuration
-- Initial machine API
+1. Have it inspect the existing repository.
+2. Read `AGENTS.md` and `docs/PROJECT_CONTEXT.md` if those files are present.
+3. Provide the revised EECS 4413 project specification.
+4. Explain the assigned feature and its requirements.
+5. Ask the agent to identify affected files, API contracts, and database changes before coding.
 
-Upcoming features include authentication, reservations, simulated payments, machine management, notifications, analytics, and AI integration.
+AI-generated code must be reviewed and tested before merging.
+
+Avoid introducing new frameworks, authentication systems, or databases without team agreement.
+
+## Planned Features
+
+The remaining work includes:
+
+- Machine browsing and availability filtering
+- Reservation creation, viewing, and cancellation
+- Database-enforced prevention of overlapping reservations
+- Simulated payment success/failure
+- Administrator machine and reservation management
+- Machine status simulation
+- Notifications and asynchronous/event-driven processing
+- Analytics dashboard
+- AI-powered natural-language availability search
+- Automated testing
+
+**Critical requirement:** Reservation conflicts must be prevented at the PostgreSQL level, including under concurrent booking requests.
 
 ## Troubleshooting
 
-**Frontend dependencies missing:** Run `npm install` inside `frontend/`.
+**Frontend does not start**
 
-**Backend dependencies missing:** Activate `.venv` and run `python -m pip install -r requirements.txt`.
+Run `npm install` inside `frontend/` and confirm Node.js is installed.
 
-**Supabase connection errors:** Check that your environment variables contain the correct project URL and publishable key.
+**Backend does not start**
 
-**Frontend cannot reach backend:** Make sure FastAPI is running on port 8000 and `NEXT_PUBLIC_API_URL` is configured correctly.
+Activate the Python virtual environment and install dependencies from `requirements.txt`.
 
-**Environment variables not updating:** Restart the relevant development server.
+**Supabase authentication fails**
+
+Check that the frontend uses the correct Supabase URL and publishable key. Do not use a secret key in the browser.
+
+**Frontend cannot connect to FastAPI**
+
+Make sure the backend is running on port 8000 and `NEXT_PUBLIC_API_URL` is configured correctly.
+
+**Machines are not appearing**
+
+Test http://127.0.0.1:8000/api/machines/ directly. If it returns machine records, the backend connection works; check whether the frontend machine-browsing page has been implemented.
+
+**Environment variables are not updating**
+
+Restart the Next.js or FastAPI development server after changing environment files.
+
+## Notes
+
+- Supabase Auth handles user passwords and sessions.
+- FastAPI handles protected business operations and authorization.
+- Never commit credentials or access tokens.
+- The backend currently uses FastAPI; confirm any required instructor approval for this framework under the revised course specification.
+- Keep this README updated when new features or setup steps are introduced.
