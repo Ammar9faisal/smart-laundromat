@@ -141,8 +141,10 @@ The following features have been implemented and tested during initial developme
 | Authenticated dashboard | Working |
 | Machine listing REST API | Working |
 | Machine browsing frontend | Not yet confirmed complete |
-| Reservation system | Not implemented |
-| Simulated payments | Not implemented |
+| Reservation and payment database layer (tables, overlap constraint, functions) | Migrations written and tested locally; not yet applied to the shared project |
+| Backend unit tests (pytest) | Working |
+| Reservation system API | Not implemented |
+| Simulated payments API | Not implemented |
 | Notifications | Not implemented |
 | Admin management dashboard | Not implemented |
 | AI availability search | Not implemented |
@@ -189,6 +191,32 @@ Stores application user profiles linked to Supabase Auth users. Each user has a 
 
 A database trigger automatically creates a customer profile when a new user registers.
 
+### New Tables (pending review)
+
+These are defined in `supabase/migrations/` and are not yet applied to the shared project.
+
+**`reservations`**
+
+A customer's booking of one machine for a time slot. Overlapping active reservations for the same machine are rejected by a PostgreSQL exclusion constraint, so the rule holds under concurrent requests.
+
+**`payments`**
+
+Simulated payment attempts for a reservation, including failed attempts. No card details are stored.
+
+Customers cannot write to either table directly. Bookings, cancellations and payments go through database functions (`create_reservation`, `cancel_reservation`, `record_payment`) that run each operation in a single transaction. See `docs/PROJECT_CONTEXT.md` for details.
+
+### Migrations
+
+| File | Purpose |
+|---|---|
+| `20261122170000_baseline_machines_profiles.sql` | Records the existing `machines` and `profiles` tables and signup trigger so the schema can be rebuilt from scratch. Guarded: existing tables, policies and the trigger are left as they are (it only turns on row level security if it is off). |
+| `20261122170100_machine_profile_constraints.sql` | CHECK constraints on machine type/status and roles, the `is_admin()` helper, admin policies for machines, and stops customers from changing their own role. |
+| `20261122170200_reservations_payments.sql` | `reservations` and `payments` tables, row level security, and the booking, cancellation, payment and availability functions. |
+
+To apply them to the shared project, open the Supabase dashboard, go to **SQL Editor**, and run each file in order (oldest first). Only do this after the team has reviewed the pull request.
+
+To check the result, run `supabase/tests/reservation_rules_test.sql` in the SQL Editor afterwards. It creates its own test users and machines inside a transaction and rolls everything back at the end, so it leaves no data behind. Every check prints `PASS: ...`; the first failure stops the script with `FAIL: ...`.
+
 ### Database Changes
 
 Coordinate schema changes with the team before modifying shared tables.
@@ -196,6 +224,20 @@ Coordinate schema changes with the team before modifying shared tables.
 New tables, constraints, functions, and policies should be saved as SQL migration files in `supabase/migrations/` so the schema can be reproduced.
 
 Do not delete shared tables or development data without discussing it with the team.
+
+## Running Tests
+
+Backend unit tests use pytest. They replace the Supabase clients with fakes, so they run offline and never touch the shared database.
+
+From `backend/` with the virtual environment activated:
+
+```bash
+python -m pytest
+```
+
+Only the `backend/tests/` folder is collected (see `backend/pytest.ini`). `backend/test_login.py` is a manual helper for getting an access token and is not part of the test suite.
+
+Database tests live in `supabase/tests/` (see the Migrations section above).
 
 ## Development Workflow
 

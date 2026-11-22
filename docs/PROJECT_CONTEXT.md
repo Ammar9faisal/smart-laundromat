@@ -44,7 +44,58 @@ Existing fields:
 
 A database trigger creates customer profiles when users register.
 
-Other tables, including reservations, payments, and notifications, still need to be designed and implemented.
+Customers may update their own `full_name` but never their `role` (enforced with column privileges).
+
+### reservations (migration pending review)
+
+- `id`, `user_id` (profile), `machine_id`
+- `start_time`, `end_time` — stored as `timestamptz` (UTC)
+- `status` — PENDING_PAYMENT, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, EXPIRED
+- `price` — copied from the machine when the reservation is created
+- `expires_at` — when an unpaid reservation stops holding its slot (15 minutes by default)
+- `version`, `created_at`, `updated_at`
+
+The `reservations_no_overlap` exclusion constraint rejects two PENDING_PAYMENT, CONFIRMED or IN_PROGRESS reservations for the same machine whose times overlap. A booking may start exactly when another ends.
+
+### payments (migration pending review)
+
+- `id`, `reservation_id`, `user_id`
+- `amount`, `currency` (default CAD)
+- `status` — PENDING, SUCCEEDED, FAILED, REFUNDED
+- `provider` (SIMULATED), `provider_ref`, `failure_reason`
+- `idempotency_key` — unique per user; repeating a request returns the original payment
+
+A reservation can have at most one SUCCEEDED/REFUNDED payment. Failed attempts are kept.
+
+### Database functions
+
+Customers have read-only access to their own reservations and payments (admins can read all). Every change goes through these functions, which take the user from the access token and run in a single transaction:
+
+| Function | Called by | Purpose |
+|---|---|---|
+| `create_reservation(machine_id, start_time, end_time, hold_minutes = 15)` | user-scoped client | Validates times and machine status, releases lapsed unpaid holds, inserts a PENDING_PAYMENT reservation |
+| `cancel_reservation(reservation_id)` | user-scoped client | Owner or admin cancels a future reservation; refunds a successful payment if more than 15 minutes before the start |
+| `record_payment(user_id, reservation_id, succeeded, provider_ref, failure_reason, idempotency_key, currency)` | **service role only** | Stores a payment outcome; success confirms the reservation, failure leaves it PENDING_PAYMENT |
+| `expire_stale_reservations()` | service role only | Marks all lapsed unpaid reservations EXPIRED (for a scheduled job or the simulator) |
+| `get_machine_busy_slots(machine_id, from, to)` | anyone | Busy time ranges for one machine (max 31-day window), without exposing who booked them |
+| `get_available_machines(start_time, end_time, type = null)` | anyone | Active, in-service machines with no booking in the window |
+
+Call them from FastAPI with `client.rpc("create_reservation", {"p_machine_id": ..., ...})`.
+
+`record_payment` is restricted to the service role so a customer cannot mark their own reservation as paid by calling the database API directly. The payments endpoint will therefore need a server-side client created with the Supabase secret key (planned as a separate `SUPABASE_SECRET_KEY` variable in `backend/.env`; never in frontend code).
+
+Errors raised by the functions, and the HTTP status the API should return:
+
+| SQLSTATE | Meaning | HTTP |
+|---|---|---|
+| `28000` | Not signed in | 401 |
+| `P0002` | Machine or reservation not found (or belongs to someone else) | 404 |
+| `22023` | Invalid input, e.g. start time in the past or end before start | 422 |
+| `LM001` | Machine inactive or out of service | 422 |
+| `23P01` | Time slot overlaps another active reservation | 409 |
+| `LM002` | Reservation is in a state that does not allow the action (already paid, already cancelled, hold expired, already started) | 409 |
+
+Notifications are still to be designed (Milestone 3).
 
 ## Current API Endpoints
 
@@ -120,7 +171,11 @@ Test authentication, role restrictions, machine APIs, reservation conflicts, con
 
 Initial authentication and backend connectivity are working.
 
-Machine browsing UI and core reservation functionality are the next major development priorities.
+The reservation and payment database layer is written and tested against a local PostgreSQL database (all checks in `supabase/tests/reservation_rules_test.sql` pass; 50 simultaneous bookings for the same slot produced exactly one reservation). It has not been applied to the shared project yet.
+
+Backend unit tests run with `python -m pytest` from `backend/`.
+
+Machine browsing UI and the reservation and payment API endpoints are the next major development priorities.
 
 Update this document as features are implemented.
 
