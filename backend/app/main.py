@@ -2,6 +2,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import machines
+from app.routers import auth
+
+
 
 app = FastAPI(
     title="Smart Laundromat API",
@@ -16,6 +19,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+app.include_router(auth.router)
 app.include_router(machines.router)
 
 @app.get("/health")
