@@ -56,12 +56,20 @@ Create `backend/.env`:
 ```env
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_KEY=YOUR_PUBLISHABLE_KEY
+SUPABASE_SECRET_KEY=YOUR_SECRET_KEY
 ```
 
-The Supabase project URL and publishable key will be shared with team members.
+The Supabase project URL and keys will be shared with team members.
+
+| Variable | Used for |
+|---|---|
+| `SUPABASE_KEY` | The publishable key (`sb_publishable_...`). Used for public reads and, together with the user's access token, for everything a signed-in user does, so row level security applies. |
+| `SUPABASE_SECRET_KEY` | The secret key (`sb_secret_...`). Backend only. Used solely to record payment outcomes, which customers must not be able to write themselves. Without it the rest of the API works and the payment endpoint returns 503. |
+| `RESERVATION_HOLD_MINUTES` | Optional, default `15`. How long an unpaid reservation holds its slot. |
 
 **Important:**
-- Use the publishable key (`sb_publishable_...`), not the secret key.
+- `SUPABASE_KEY` must be the publishable key, not the secret key.
+- The secret key belongs only in `backend/.env`, never in frontend code or `NEXT_PUBLIC_` variables.
 - Do not commit `.env` or `.env.local` files.
 - Do not use Supabase service-role or secret keys in frontend code.
 - We use one shared Supabase development project, so teammates do not need to create separate databases.
@@ -140,13 +148,14 @@ The following features have been implemented and tested during initial developme
 | Customer/admin role authorization | Working |
 | Authenticated dashboard | Working |
 | Machine listing REST API | Working |
-| Machine browsing frontend | Not yet confirmed complete |
-| Reservation and payment database layer (tables, overlap constraint, functions) | Migrations written and tested locally; not yet applied to the shared project |
-| Backend unit tests (pytest) | Working |
-| Reservation system API | Not implemented |
-| Simulated payments API | Not implemented |
+| Machine browsing, filtering and availability (API and pages) | Working |
+| Admin machine management: add, edit, change status, deactivate | Working |
+| Reservations: create, list, view, cancel; overlap prevention | Working |
+| Unpaid reservations expire and release their slot | Working |
+| Simulated payments: success, decline, idempotency, refunds | Working |
+| Admin dashboard: summary, machines, reservations, payments | Working (basic) |
+| Backend unit tests (pytest) and Supabase integration tests | Working |
 | Notifications | Not implemented |
-| Admin management dashboard | Not implemented |
 | AI availability search | Not implemented |
 
 This table reflects the initial implementation. Update it as features are merged.
@@ -159,21 +168,39 @@ This table reflects the initial implementation. Update it as features are merged
 | `/signup` | Customer registration |
 | `/login` | User login |
 | `/dashboard` | Authenticated user dashboard |
-
-Machine browsing UI is planned at `/machines`.
+| `/machines` | Browse and filter machines; find a free machine for a time slot |
+| `/machines/[id]` | Machine details, booked times for a day, reservation form |
+| `/reservations` | The customer's reservations: pay with a test card or cancel |
+| `/admin` | Administrators: summary, machine management, all reservations and payments |
 
 ## Backend API Endpoints
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/health` | Backend health check |
-| GET | `/api/machines/` | Retrieve active machines |
-| GET | `/api/auth/me` | Retrieve authenticated user's profile |
-| GET | `/api/auth/admin-test` | Test admin-only authorization |
+Full documentation (parameters, request and response bodies, status codes, access rules): [`docs/API.md`](docs/API.md). Interactive docs: http://127.0.0.1:8000/docs
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/health` | Public | Backend health check |
+| GET | `/api/auth/me` | User | Authenticated user's profile |
+| GET | `/api/auth/admin-test` | Admin | Test admin-only authorization |
+| GET | `/api/machines/` | Public | Active machines (filters: `type`, `status`, `min_capacity`) |
+| GET | `/api/machines/available` | Public | Machines free for a time window |
+| GET | `/api/machines/{id}` | Public | Machine details |
+| GET | `/api/machines/{id}/availability` | Public | Busy time ranges for a machine |
+| POST | `/api/machines/` | Admin | Add a machine |
+| PATCH | `/api/machines/{id}` | Admin | Update type, capacity, price or active flag |
+| PATCH | `/api/machines/{id}/status` | Admin | Change machine status |
+| DELETE | `/api/machines/{id}` | Admin | Deactivate a machine (soft delete) |
+| POST | `/api/reservations` | User | Reserve a machine (409 if the slot overlaps) |
+| GET | `/api/reservations` | User | Own reservations (admins: all) |
+| GET | `/api/reservations/{id}` | User | One reservation |
+| DELETE | `/api/reservations/{id}` | Owner/Admin | Cancel a reservation (refund if early) |
+| POST | `/api/payments` | User | Pay with a test card (402 if declined) |
+| GET | `/api/payments` | User | Own payments (admins: all) |
+| GET | `/api/payments/{id}` | User | One payment |
+| GET | `/api/admin/machines` | Admin | All machines, including inactive |
+| GET | `/api/admin/summary` | Admin | Dashboard counts and revenue |
 
 Protected endpoints require a valid Supabase access token in the `Authorization: Bearer <token>` header.
-
-Additional endpoints will be introduced as development continues.
 
 ## Database
 
@@ -236,6 +263,14 @@ python -m pytest
 ```
 
 Only the `backend/tests/` folder is collected (see `backend/pytest.ini`). `backend/test_login.py` is a manual helper for getting an access token and is not part of the test suite.
+
+### Integration tests (real Supabase)
+
+`backend/integration_tests/` runs the full booking and payment flow through the API against the shared Supabase project, including 50 simultaneous bookings for the same slot. The tests create two temporary users and a temporary machine and delete them, with everything they created, at the end. They need `SUPABASE_SECRET_KEY` in `backend/.env` and are skipped unless enabled:
+
+```bash
+RUN_INTEGRATION_TESTS=1 python -m pytest integration_tests
+```
 
 Database tests live in `supabase/tests/` (see the Migrations section above).
 

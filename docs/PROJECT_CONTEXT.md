@@ -82,7 +82,7 @@ Customers have read-only access to their own reservations and payments (admins c
 
 Call them from FastAPI with `client.rpc("create_reservation", {"p_machine_id": ..., ...})`.
 
-`record_payment` is restricted to the service role so a customer cannot mark their own reservation as paid by calling the database API directly. The payments endpoint will therefore need a server-side client created with the Supabase secret key (planned as a separate `SUPABASE_SECRET_KEY` variable in `backend/.env`; never in frontend code).
+`record_payment` is restricted to the service role so a customer cannot mark their own reservation as paid by calling the database API directly. The payments endpoint therefore uses a server-side client created with the Supabase secret key (`SUPABASE_SECRET_KEY` in `backend/.env`; never in frontend code). All other endpoints use the publishable key with the caller's access token.
 
 Errors raised by the functions, and the HTTP status the API should return:
 
@@ -99,12 +99,25 @@ Notifications are still to be designed (Milestone 3).
 
 ## Current API Endpoints
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/health` | Backend health check |
-| GET | `/api/machines/` | List active machines |
-| GET | `/api/auth/me` | Get authenticated user profile |
-| GET | `/api/auth/admin-test` | Verify admin authorization |
+See [`API.md`](API.md) for the full list with request/response bodies and status codes. Summary:
+
+| Area | Endpoints |
+|---|---|
+| Health | `GET /health` |
+| Auth | `GET /api/auth/me`, `GET /api/auth/admin-test` |
+| Machines (public) | `GET /api/machines/`, `GET /api/machines/available`, `GET /api/machines/{id}`, `GET /api/machines/{id}/availability` |
+| Machines (admin) | `POST /api/machines/`, `PATCH /api/machines/{id}`, `PATCH /api/machines/{id}/status`, `DELETE /api/machines/{id}` |
+| Reservations | `POST /api/reservations`, `GET /api/reservations`, `GET /api/reservations/{id}`, `DELETE /api/reservations/{id}` |
+| Payments | `POST /api/payments`, `GET /api/payments`, `GET /api/payments/{id}` |
+| Admin | `GET /api/admin/machines`, `GET /api/admin/summary` |
+
+Backend layout:
+
+- `app/routers/` — one router per area (HTTP only)
+- `app/schemas/` — Pydantic request/response models and booking rules
+- `app/services/payment_gateway.py` — simulated payment gateway (Stripe-style test payment methods), replaceable through a FastAPI dependency
+- `app/errors.py` — maps database error codes to HTTP status codes
+- `app/dependencies.py` — authentication, admin check, and the Supabase client for each request (user-scoped, admin, or the secret-key service client for payments)
 
 Verify these endpoints against the repository before changing them.
 
@@ -116,27 +129,16 @@ Verify these endpoints against the repository before changing them.
 | `/signup` | Customer registration |
 | `/login` | User login |
 | `/dashboard` | Authenticated profile/dashboard |
-| `/machines` | Machine browsing — planned or in progress |
+| `/machines` | Browse/filter machines, find a free machine for a time slot |
+| `/machines/[id]` | Machine details, busy times for a day, reservation form |
+| `/reservations` | Customer's reservations: pay with a test card, cancel |
+| `/admin` | Admin summary, machine management, all reservations and payments |
+
+Shared frontend code: `lib/api.ts` (calls FastAPI with the user's access token and turns errors into messages), `lib/types.ts`, `lib/format.ts`, `components/AppNav.tsx`.
 
 ## Features Still to Implement
 
-### Machine Browsing
-
-Display real machine data from FastAPI. Add filters for machine type, capacity, and availability.
-
-### Reservations
-
-Customers should be able to select a machine, date, and time slot, create reservations, and view or cancel their bookings.
-
-Overlapping active reservations for the same machine must be rejected even under simultaneous requests.
-
-### Simulated Payments
-
-Create payment records associated with reservations. Support simulated success and failure, with consistent reservation/payment states.
-
-### Admin Dashboard
-
-Administrators should be able to create, update, disable, and inspect machines; manage reservations; inspect payments; and view operational analytics.
+Machine browsing, reservations, simulated payments and a basic admin dashboard are implemented (Milestone 2). Remaining:
 
 ### Machine Simulation
 
@@ -171,11 +173,13 @@ Test authentication, role restrictions, machine APIs, reservation conflicts, con
 
 Initial authentication and backend connectivity are working.
 
-The reservation and payment database layer is written and tested against a local PostgreSQL database (all checks in `supabase/tests/reservation_rules_test.sql` pass; 50 simultaneous bookings for the same slot produced exactly one reservation). It has not been applied to the shared project yet.
+Milestone 2 features are implemented: machine browsing and availability, admin machine management, reservations with database-enforced overlap prevention, unpaid-reservation expiry, simulated payments (success, decline, idempotency, refunds) and a basic admin dashboard.
 
-Backend unit tests run with `python -m pytest` from `backend/`.
+The database layer was tested against a local PostgreSQL database (all checks in `supabase/tests/reservation_rules_test.sql` pass; 50 simultaneous bookings for the same slot produced exactly one reservation).
 
-Machine browsing UI and the reservation and payment API endpoints are the next major development priorities.
+Backend unit tests run with `python -m pytest` from `backend/`; integration tests against Supabase with `RUN_INTEGRATION_TESTS=1 python -m pytest integration_tests`.
+
+Next (Milestone 3): notifications through an event-driven/asynchronous flow, machine status simulation, analytics, containerization and deployment, and the AI availability assistant.
 
 Update this document as features are implemented.
 
