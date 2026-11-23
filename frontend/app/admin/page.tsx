@@ -86,6 +86,11 @@ export default function AdminPage() {
   }
 
   function changeStatus(machine: Machine, status: MachineStatus) {
+    // Show the new status straight away; the reload after the request puts
+    // back the real value if the change fails.
+    setMachines((current) =>
+      current.map((m) => (m.id === machine.id ? { ...m, status } : m))
+    );
     run(() =>
       api(`/api/machines/${machine.id}/status`, {
         method: "PATCH",
