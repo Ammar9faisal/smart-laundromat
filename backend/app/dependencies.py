@@ -3,8 +3,9 @@ from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from supabase import Client
 
-from app.database import supabase, get_user_client
+from app.database import supabase, get_user_client, get_service_client
 
 security = HTTPBearer()
 
@@ -67,3 +68,27 @@ def require_admin(
         )
 
     return auth
+
+def get_user_db(
+    auth: AuthContext = Depends(get_current_user)
+) -> Client:
+    """Supabase client acting as the signed-in user, so row level security
+    decides which rows they can read."""
+    return get_user_client(auth.token)
+
+def get_admin_db(
+    auth: AuthContext = Depends(require_admin)
+) -> Client:
+    """Supabase client for an administrator (role checked by require_admin)."""
+    return get_user_client(auth.token)
+
+def get_service_db() -> Client:
+    client = get_service_client()
+
+    if client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Payments are not configured on the server"
+        )
+
+    return client
