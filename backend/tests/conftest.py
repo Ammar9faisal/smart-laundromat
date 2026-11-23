@@ -127,9 +127,14 @@ def fake_auth(monkeypatch):
     which tokens were used to build user-scoped clients.
     """
 
-    state = SimpleNamespace(user_client_tokens=[], profile_error=None, db=FakeClient())
+    state = SimpleNamespace(
+        user_client_tokens=[], profile_error=None, db=FakeClient(), auth_errors=[]
+    )
 
     def get_user(token):
+        # Errors queued in state.auth_errors are raised first, one per call.
+        if state.auth_errors:
+            raise state.auth_errors.pop(0)
         if token not in VALID_TOKENS:
             raise RuntimeError("invalid JWT")
         return SimpleNamespace(user=VALID_TOKENS[token])

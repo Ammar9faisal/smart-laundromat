@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from supabase import Client
+from supabase_auth.errors import AuthRetryableError
 
 from app.database import supabase, get_user_client, get_service_client
 
@@ -14,13 +15,21 @@ class AuthContext:
     user: object
     token: str
 
+def _fetch_user(token: str):
+    try:
+        return supabase.auth.get_user(token)
+    except AuthRetryableError:
+        # Supabase sometimes closes the shared connection between requests;
+        # one retry opens a fresh connection.
+        return supabase.auth.get_user(token)
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> AuthContext:
     token = credentials.credentials
 
     try:
-        response = supabase.auth.get_user(token)
+        response = _fetch_user(token)
 
         if response.user is None:
             raise HTTPException(
@@ -35,6 +44,14 @@ def get_current_user(
 
     except HTTPException:
         raise
+
+    # Supabase Auth could not be reached: the token may be fine, so report
+    # 503 instead of 401 (a 401 makes the frontend log the user out).
+    except AuthRetryableError:
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication service unavailable, please try again"
+        )
 
     except Exception:
         raise HTTPException(

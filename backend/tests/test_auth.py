@@ -1,4 +1,10 @@
+from supabase_auth.errors import AuthRetryableError
+
 from tests.conftest import ADMIN_ID, CUSTOMER_ID, bearer
+
+
+def dropped_connection():
+    return AuthRetryableError("<ConnectionTerminated error_code:1>", 0)
 
 
 # --- /api/auth/me -----------------------------------------------------------
@@ -35,6 +41,24 @@ def test_me_returns_the_callers_profile(client, fake_auth):
     # The profile is read with a client scoped to the caller's own token, so
     # row level security applies.
     assert fake_auth.user_client_tokens == ["customer-token"]
+
+
+def test_dropped_auth_connection_is_retried(client, fake_auth):
+    fake_auth.auth_errors = [dropped_connection()]
+
+    response = client.get("/api/auth/me", headers=bearer("customer-token"))
+
+    assert response.status_code == 200
+
+
+def test_auth_service_unreachable_is_503_not_401(client, fake_auth):
+    # Two failures in a row: the token may still be valid, so the user must
+    # not be treated as logged out.
+    fake_auth.auth_errors = [dropped_connection(), dropped_connection()]
+
+    response = client.get("/api/auth/me", headers=bearer("customer-token"))
+
+    assert response.status_code == 503
 
 
 def test_me_profile_lookup_failure_returns_500(client, fake_auth):
