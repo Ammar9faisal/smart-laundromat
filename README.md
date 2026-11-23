@@ -218,9 +218,9 @@ Stores application user profiles linked to Supabase Auth users. Each user has a 
 
 A database trigger automatically creates a customer profile when a new user registers.
 
-### New Tables (pending review)
+### New Tables
 
-These are defined in `supabase/migrations/` and are not yet applied to the shared project.
+These are defined in `supabase/migrations/` and have been applied to the shared project.
 
 **`reservations`**
 
@@ -240,7 +240,7 @@ Customers cannot write to either table directly. Bookings, cancellations and pay
 | `20261122170100_machine_profile_constraints.sql` | CHECK constraints on machine type/status and roles, the `is_admin()` helper, admin policies for machines, and stops customers from changing their own role. |
 | `20261122170200_reservations_payments.sql` | `reservations` and `payments` tables, row level security, and the booking, cancellation, payment and availability functions. |
 
-To apply them to the shared project, open the Supabase dashboard, go to **SQL Editor**, and run each file in order (oldest first). Only do this after the team has reviewed the pull request.
+The shared project already has them. To set up another database (for example a local or test project), open the Supabase dashboard, go to **SQL Editor**, and run each file in order (oldest first).
 
 To check the result, run `supabase/tests/reservation_rules_test.sql` in the SQL Editor afterwards. It creates its own test users and machines inside a transaction and rolls everything back at the end, so it leaves no data behind. Every check prints `PASS: ...`; the first failure stops the script with `FAIL: ...`.
 

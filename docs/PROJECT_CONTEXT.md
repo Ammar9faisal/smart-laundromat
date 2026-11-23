@@ -46,7 +46,7 @@ A database trigger creates customer profiles when users register.
 
 Customers may update their own `full_name` but never their `role` (enforced with column privileges).
 
-### reservations (migration pending review)
+### reservations
 
 - `id`, `user_id` (profile), `machine_id`
 - `start_time`, `end_time` — stored as `timestamptz` (UTC)
@@ -57,7 +57,7 @@ Customers may update their own `full_name` but never their `role` (enforced with
 
 The `reservations_no_overlap` exclusion constraint rejects two PENDING_PAYMENT, CONFIRMED or IN_PROGRESS reservations for the same machine whose times overlap. A booking may start exactly when another ends.
 
-### payments (migration pending review)
+### payments
 
 - `id`, `reservation_id`, `user_id`
 - `amount`, `currency` (default CAD)
@@ -175,7 +175,7 @@ Initial authentication and backend connectivity are working.
 
 Milestone 2 features are implemented: machine browsing and availability, admin machine management, reservations with database-enforced overlap prevention, unpaid-reservation expiry, simulated payments (success, decline, idempotency, refunds) and a basic admin dashboard.
 
-The database layer was tested against a local PostgreSQL database (all checks in `supabase/tests/reservation_rules_test.sql` pass; 50 simultaneous bookings for the same slot produced exactly one reservation).
+The database layer was tested against a local PostgreSQL database (all checks in `supabase/tests/reservation_rules_test.sql` pass; 50 simultaneous bookings for the same slot produced exactly one reservation). The migrations are applied to the shared Supabase project, and the integration tests pass against it, including 50 simultaneous bookings through the API.
 
 Backend unit tests run with `python -m pytest` from `backend/`; integration tests against Supabase with `RUN_INTEGRATION_TESTS=1 python -m pytest integration_tests`.
 
