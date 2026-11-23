@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -122,6 +123,31 @@ export default function DashboardPage() {
           <p className="font-semibold text-blue-600">
             Administrator Account
           </p>
+        )}
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          href="/machines"
+          className="rounded bg-blue-600 px-5 py-3 text-white"
+        >
+          Browse Machines
+        </Link>
+
+        <Link
+          href="/reservations"
+          className="rounded border border-blue-600 px-5 py-3 text-blue-600"
+        >
+          My Reservations
+        </Link>
+
+        {profile.role === "admin" && (
+          <Link
+            href="/admin"
+            className="rounded border border-gray-800 px-5 py-3 text-gray-800"
+          >
+            Admin
+          </Link>
         )}
       </div>
 

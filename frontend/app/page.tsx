@@ -11,6 +11,10 @@ export default function HomePage() {
         </Link>
 
         <div className="flex gap-5">
+          <Link href="/machines" className="hover:text-blue-600">
+            Machines
+          </Link>
+
           <Link href="/login" className="hover:text-blue-600">
             Login
           </Link>
@@ -51,6 +55,13 @@ export default function HomePage() {
           >
             Login
           </Link>
+
+          <Link
+            href="/machines"
+            className="rounded-lg border border-blue-600 px-6 py-3 font-semibold text-blue-600 hover:bg-blue-50"
+          >
+            Browse Machines
+          </Link>
         </div>
       </section>
 
@@ -71,8 +82,8 @@ export default function HomePage() {
             Book Reservations
           </h2>
           <p className="text-gray-600">
-            Reserve a machine for your preferred time slot.
-            Coming soon!
+            Reserve a machine for your preferred time slot
+            and pay with a simulated card.
           </p>
         </div>
 
