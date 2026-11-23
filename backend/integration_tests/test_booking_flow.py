@@ -61,7 +61,7 @@ def test_booking_payment_and_cancellation(client, customers, machine):
     pay = {
         "reservation_id": reservation["id"],
         "payment_method": "pm_card_visa",
-        "idempotency_key": f"it-{reservation['id']}-1",
+        "idempotency_key": f"integration-{reservation['id']}-1",
     }
     response = client.post("/api/payments", json=pay, headers=auth_header(a))
     assert response.status_code == 201, response.text
@@ -79,7 +79,7 @@ def test_booking_payment_and_cancellation(client, customers, machine):
 
     # Paying again with a new key is rejected.
     response = client.post(
-        "/api/payments", json={**pay, "idempotency_key": f"it-{reservation['id']}-2"},
+        "/api/payments", json={**pay, "idempotency_key": f"integration-{reservation['id']}-2"},
         headers=auth_header(a),
     )
     assert response.status_code == 409
