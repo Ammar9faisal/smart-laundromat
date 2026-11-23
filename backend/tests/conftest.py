@@ -17,6 +17,7 @@ os.environ["SUPABASE_URL"] = "https://test-project.supabase.co"
 os.environ["SUPABASE_KEY"] = "sb_publishable_test_key"
 
 from fastapi.testclient import TestClient  # noqa: E402
+from postgrest.exceptions import APIError  # noqa: E402
 
 from app import dependencies  # noqa: E402
 from app.main import app  # noqa: E402
@@ -53,13 +54,37 @@ class FakeQuery:
 
 
 class FakeClient:
-    """Stands in for a supabase-py Client with one FakeQuery per table."""
+    """Stands in for a supabase-py Client: one FakeQuery per table and per
+    database function (rpc). Function calls are recorded in rpc_calls."""
 
-    def __init__(self, tables=None):
+    def __init__(self, tables=None, rpcs=None):
         self.tables = tables or {}
+        self.rpcs = rpcs or {}
+        self.rpc_calls = []
 
     def table(self, name):
         return self.tables[name]
+
+    def rpc(self, name, params=None):
+        self.rpc_calls.append((name, params))
+        return self.rpcs[name]
+
+
+class UserScopedFakeClient:
+    """What get_user_client returns in tests: the caller's own profile, plus the
+    shared fake tables and functions in fake_auth.db."""
+
+    def __init__(self, shared, profile_query):
+        self.shared = shared
+        self.profile_query = profile_query
+
+    def table(self, name):
+        if name == "profiles":
+            return self.profile_query
+        return self.shared.table(name)
+
+    def rpc(self, name, params=None):
+        return self.shared.rpc(name, params)
 
 
 CUSTOMER_ID = "00000000-0000-4000-8000-0000000000a1"
@@ -97,11 +122,12 @@ def fake_auth(monkeypatch):
 
     Tokens listed in VALID_TOKENS are accepted; anything else is rejected the
     way Supabase rejects an invalid or expired token. Profile lookups return
-    the matching entry from PROFILES. The returned object records which tokens
-    were used to build user-scoped clients.
+    the matching entry from PROFILES. Other tables and database functions come
+    from state.db, which each test fills in. The returned object also records
+    which tokens were used to build user-scoped clients.
     """
 
-    state = SimpleNamespace(user_client_tokens=[], profile_error=None)
+    state = SimpleNamespace(user_client_tokens=[], profile_error=None, db=FakeClient())
 
     def get_user(token):
         if token not in VALID_TOKENS:
@@ -111,9 +137,8 @@ def fake_auth(monkeypatch):
     def get_user_client(token):
         state.user_client_tokens.append(token)
         user = VALID_TOKENS[token]
-        return FakeClient(
-            {"profiles": FakeQuery(data=PROFILES[user.id], error=state.profile_error)}
-        )
+        profile = FakeQuery(data=PROFILES[user.id], error=state.profile_error)
+        return UserScopedFakeClient(state.db, profile)
 
     monkeypatch.setattr(
         dependencies, "supabase", SimpleNamespace(auth=SimpleNamespace(get_user=get_user))
@@ -123,5 +148,19 @@ def fake_auth(monkeypatch):
     return state
 
 
+@pytest.fixture
+def service_db():
+    """Replaces the secret-key client used to record payments."""
+    fake = FakeClient()
+    app.dependency_overrides[dependencies.get_service_db] = lambda: fake
+    yield fake
+    app.dependency_overrides.pop(dependencies.get_service_db, None)
+
+
 def bearer(token):
     return {"Authorization": f"Bearer {token}"}
+
+
+def api_error(code, message="database error"):
+    """An error shaped like the ones supabase-py raises for database errors."""
+    return APIError({"code": code, "message": message, "details": None, "hint": None})
